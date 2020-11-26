@@ -100,7 +100,7 @@ const getAllProperties = function(options, limit) {
   let queryString = `
   SELECT properties.*, avg(property_reviews.rating) as average_rating
   FROM properties
-  JOIN property_reviews ON properties.id = property_id
+  LEFT JOIN property_reviews ON properties.id = property_id
   `;
   
   let addAND = false;
@@ -109,18 +109,18 @@ const getAllProperties = function(options, limit) {
     queryParams.push(`%${options.city}%`);
     queryString += `WHERE city LIKE $${queryParams.length} `;
     addAND = true;
-  }
+  };
 
   if (options.minimum_price_per_night && options.maximum_price_per_night) {
     queryParams.push(options.minimum_price_per_night * 100, options.maximum_price_per_night * 100);
     queryString += `${addAND? 'AND':'WHERE'} cost_per_night BETWEEN $${queryParams.length - 1} AND $${queryParams.length}`;
     addAND = true;
-  }
+  };
 
   if (options.minimum_rating) {
     queryParams.push(options.minimum_rating);
     queryString += `${addAND? 'AND':'WHERE'} rating >= $${queryParams.length}`;
-  }
+  };
 
   queryParams.push(limit);
   queryString += `
@@ -129,9 +129,6 @@ const getAllProperties = function(options, limit) {
   LIMIT $${queryParams.length};
   `;
 
-  
-  console.log(queryString, queryParams);
-      
   return pool.query(queryString, queryParams)
   .then(res => res.rows);
 } 
@@ -144,9 +141,17 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
   const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
-}
+    
+    const propertyProperties = [];
+    for (let key in property) {
+      propertyProperties.push(property[key]);
+    }
+    console.log(propertyProperties)
+    return pool.query(`
+    INSERT INTO properties (title, description, number_of_bedrooms, number_of_bathrooms, parking_spaces, cost_per_night, thumbnail_photo_url, cover_photo_url, street, country, city, province, post_code, owner_id)
+    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+    `, propertyProperties)
+    .then(res => res.rows[0]);
+
+};
 exports.addProperty = addProperty;
